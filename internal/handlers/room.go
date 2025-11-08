@@ -52,7 +52,7 @@ func ShowRoomsList(w http.ResponseWriter, r *http.Request) {
 		Username: username,
 	}
 
-	tmpl := template.Must(template.ParseFiles("../../web/templates/rooms.html"))
+	tmpl := template.Must(template.ParseFiles("web/templates/rooms.html"))
 	tmpl.Execute(w, data)
 }
 
@@ -210,7 +210,7 @@ func ShowRoom(w http.ResponseWriter, r *http.Request) {
 		Username: username,
 	}
 
-	tmpl := template.Must(template.ParseFiles("../../web/templates/room.html"))
+	tmpl := template.Must(template.ParseFiles("web/templates/room.html"))
 	tmpl.Execute(w, data)
 }
 

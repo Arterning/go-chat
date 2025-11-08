@@ -17,13 +17,13 @@ var store = sessions.NewCookieStore([]byte("your-secret-key-change-this-in-produ
 
 // ShowRegisterPage 显示注册页面
 func ShowRegisterPage(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("../../web/templates/register.html"))
+	tmpl := template.Must(template.ParseFiles("web/templates/register.html"))
 	tmpl.Execute(w, nil)
 }
 
 // ShowLoginPage 显示登录页面
 func ShowLoginPage(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("../../web/templates/login.html"))
+	tmpl := template.Must(template.ParseFiles("web/templates/login.html"))
 	tmpl.Execute(w, nil)
 }
 

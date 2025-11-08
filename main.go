@@ -14,13 +14,8 @@ import (
 
 func main() {
 	// 加载 .env 文件（如果存在）
-	// 尝试从当前目录和项目根目录加载
-	if err := godotenv.Load(".env"); err != nil {
-		if err := godotenv.Load(".env"); err != nil {
-			log.Println("No .env file found, using environment variables or defaults")
-		} else {
-			log.Println("Loaded configuration from .env file")
-		}
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables or defaults")
 	} else {
 		log.Println("Loaded configuration from .env file")
 	}
@@ -45,7 +40,7 @@ func main() {
 	r := mux.NewRouter()
 
 	// 静态文件
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("/web/static"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 
 	// 公开路由
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
