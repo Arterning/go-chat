@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Room.Name }} - Go Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-full px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <a href="/rooms" class="text-blue-500 hover:text-blue-700">← 返回</a>
+                    <div class="text-xl font-bold text-gray-800">{{ .Room.Name }}</div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="inviteBtn" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded">
+                        邀请成员
+                    </button>
+                    <button id="membersBtn" class="bg-purple-500 hover:bg-purple-700 text-white px-4 py-2 rounded">
+                        成员列表
+                    </button>
+                    <span class="text-gray-600">{{ .Username }}</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        {{ if .Room.Description }}
+        <div class="bg-blue-50 px-4 py-2 border-b">
+            <p class="text-gray-600">{{ .Room.Description }}</p>
+        </div>
+        {{ end }}
+
+        <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-2">
+            {{ range .Messages }}
+            <div class="bg-white p-3 rounded-lg shadow" data-message-id="{{ .ID }}">
+                <div class="flex justify-between items-start">
+                    <span class="font-bold text-blue-600">{{ .Username }}</span>
+                    <span class="text-xs text-gray-500">{{ .CreatedAt.Format "15:04" }}</span>
+                </div>
+                <p class="text-gray-800 mt-1">{{ .Content }}</p>
+            </div>
+            {{ end }}
+        </div>
+
+        <div class="bg-white border-t p-4">
+            <form id="messageForm" class="flex space-x-2">
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="输入消息..."
+                    class="flex-1 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    autocomplete="off"
+                >
+                <button
+                    type="submit"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded"
+                >
+                    发送
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 邀请成员模态框 -->
+    <div id="inviteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">邀请成员</h3>
+                <div id="inviteError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+                <form id="inviteForm">
+                    <div class="mb-4">
+                        <label for="inviteUsername" class="block text-gray-700 text-sm font-bold mb-2">用户名</label>
+                        <input
+                            type="text"
+                            id="inviteUsername"
+                            required
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="请输入要邀请的用户名"
+                        >
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button
+                            type="button"
+                            id="cancelInviteBtn"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                        >
+                            取消
+                        </button>
+                        <button
+                            type="submit"
+                            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                        >
+                            邀请
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成员列表模态框 -->
+    <div id="membersModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">成员列表</h3>
+                <div id="membersList" class="space-y-2 mb-4">
+                    <!-- 动态加载 -->
+                </div>
+                <div class="flex justify-end">
+                    <button
+                        id="closeMembersBtn"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                    >
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const roomId = {{ .Room.ID }};
+        const userId = {{ .UserID }};
+        const username = "{{ .Username }}";
+        let ws;
+
+        // WebSocket 连接
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/rooms/${roomId}`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket 连接已建立');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket 连接已关闭');
+                setTimeout(connectWebSocket, 3000); // 3秒后重连
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            const messagesDiv = document.getElementById('messages');
+
+            switch (data.type) {
+                case 'message':
+                    const msg = data.message;
+                    const messageEl = document.createElement('div');
+                    messageEl.className = 'bg-white p-3 rounded-lg shadow';
+                    messageEl.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <span class="font-bold text-blue-600">${msg.username}</span>
+                            <span class="text-xs text-gray-500">${new Date(msg.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p class="text-gray-800 mt-1">${escapeHtml(msg.content)}</p>
+                    `;
+                    messagesDiv.appendChild(messageEl);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    break;
+
+                case 'join':
+                    console.log(`${data.username} 加入了房间`);
+                    break;
+
+                case 'leave':
+                    console.log(`${data.username} 离开了房间`);
+                    break;
+
+                case 'error':
+                    console.error('错误:', data.error);
+                    break;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 发送消息
+        document.getElementById('messageForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+
+            if (content && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'message',
+                    content: content
+                }));
+                input.value = '';
+            }
+        });
+
+        // 邀请成员
+        const inviteModal = document.getElementById('inviteModal');
+        const inviteBtn = document.getElementById('inviteBtn');
+        const cancelInviteBtn = document.getElementById('cancelInviteBtn');
+        const inviteError = document.getElementById('inviteError');
+
+        inviteBtn.addEventListener('click', () => {
+            inviteModal.classList.remove('hidden');
+        });
+
+        cancelInviteBtn.addEventListener('click', () => {
+            inviteModal.classList.add('hidden');
+            inviteError.classList.add('hidden');
+        });
+
+        document.getElementById('inviteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inviteUsername = document.getElementById('inviteUsername').value;
+
+            try {
+                const response = await fetch(`/api/rooms/${roomId}/invite`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: inviteUsername })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    inviteModal.classList.add('hidden');
+                    document.getElementById('inviteUsername').value = '';
+                    alert('邀请成功！');
+                } else {
+                    inviteError.textContent = data.message || '邀请失败';
+                    inviteError.classList.remove('hidden');
+                }
+            } catch (error) {
+                inviteError.textContent = '网络错误，请稍后重试';
+                inviteError.classList.remove('hidden');
+            }
+        });
+
+        // 成员列表
+        const membersModal = document.getElementById('membersModal');
+        const membersBtn = document.getElementById('membersBtn');
+        const closeMembersBtn = document.getElementById('closeMembersBtn');
+
+        membersBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`/api/rooms/${roomId}/members`);
+                const members = await response.json();
+
+                const membersList = document.getElementById('membersList');
+                membersList.innerHTML = members.map(member => `
+                    <div class="flex justify-between items-center p-2 bg-gray-100 rounded">
+                        <span>${member.username}</span>
+                        <span class="text-xs text-gray-500">${member.role === 'creator' ? '创建者' : '成员'}</span>
+                    </div>
+                `).join('');
+
+                membersModal.classList.remove('hidden');
+            } catch (error) {
+                console.error('获取成员列表失败:', error);
+            }
+        });
+
+        closeMembersBtn.addEventListener('click', () => {
+            membersModal.classList.add('hidden');
+        });
+
+        // 初始化
+        connectWebSocket();
+
+        // 滚动到底部
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    </script>
+</body>
+</html>

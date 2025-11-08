@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天室列表 - Go Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="text-xl font-bold text-gray-800">Go Chat</div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-600">欢迎, {{ .Username }}</span>
+                    <a href="/logout" class="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded">退出</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">我的聊天室</h1>
+            <button
+                id="createRoomBtn"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            >
+                创建新房间
+            </button>
+        </div>
+
+        <div id="error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+
+        {{ if .Rooms }}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{ range .Rooms }}
+            <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                <h2 class="text-xl font-bold mb-2 text-gray-800">{{ .Name }}</h2>
+                <p class="text-gray-600 mb-4">{{ .Description }}</p>
+                <a
+                    href="/rooms/{{ .ID }}"
+                    class="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                >
+                    进入聊天室
+                </a>
+            </div>
+            {{ end }}
+        </div>
+        {{ else }}
+        <div class="bg-white p-8 rounded-lg shadow-md text-center">
+            <p class="text-gray-600 text-lg">您还没有加入任何聊天室</p>
+            <p class="text-gray-500 mt-2">点击上方按钮创建一个新的聊天室吧！</p>
+        </div>
+        {{ end }}
+    </div>
+
+    <!-- 创建房间模态框 -->
+    <div id="createRoomModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">创建新聊天室</h3>
+                <form id="createRoomForm">
+                    <div class="mb-4">
+                        <label for="roomName" class="block text-gray-700 text-sm font-bold mb-2">房间名称</label>
+                        <input
+                            type="text"
+                            id="roomName"
+                            required
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="请输入房间名称"
+                        >
+                    </div>
+                    <div class="mb-4">
+                        <label for="roomDescription" class="block text-gray-700 text-sm font-bold mb-2">房间描述</label>
+                        <textarea
+                            id="roomDescription"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="请输入房间描述（可选）"
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button
+                            type="button"
+                            id="cancelBtn"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                        >
+                            取消
+                        </button>
+                        <button
+                            type="submit"
+                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                        >
+                            创建
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('createRoomModal');
+        const createBtn = document.getElementById('createRoomBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const errorDiv = document.getElementById('error');
+
+        createBtn.addEventListener('click', () => {
+            modal.classList.remove('hidden');
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+
+        document.getElementById('createRoomForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('roomName').value;
+            const description = document.getElementById('roomDescription').value;
+
+            try {
+                const response = await fetch('/api/rooms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    window.location.reload();
+                } else {
+                    errorDiv.textContent = data.message || '创建房间失败';
+                    errorDiv.classList.remove('hidden');
+                    modal.classList.add('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = '网络错误，请稍后重试';
+                errorDiv.classList.remove('hidden');
+                modal.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
